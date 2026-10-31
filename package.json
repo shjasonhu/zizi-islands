@@ -1,0 +1,29 @@
+{
+  "name": "zizi-islands",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "tsx --test src/lib/pinyin.test.ts src/lib/srs.test.ts src/game/progress.test.ts tools/crypto-roundtrip.test.mjs tools/no-textbook-leak.test.mjs",
+    "encrypt": "node tools/encrypt-content.mjs",
+    "postinstall": "node tools/copy-strokes.mjs"
+  },
+  "dependencies": {
+    "hanzi-writer": "^3.3.0",
+    "hanzi-writer-data": "^2.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.11",
+    "vite-plugin-pwa": "^0.21.1"
+  }
+}

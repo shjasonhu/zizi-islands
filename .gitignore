@@ -1,0 +1,9 @@
+node_modules/
+dist/
+content/
+*.local
+.DS_Store
+dev-dist/
+.vite/
+playwright-report/
+test-results/
