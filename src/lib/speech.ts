@@ -1,29 +1,130 @@
-export type VoiceKind = 'zh-TW' | 'zh-fallback' | 'default' | 'missing'
+/**
+ * Taiwan Mandarin speech.
+ * iPad Safari loads voices asynchronously and fires `voiceschanged`
+ * (often with an empty list on the first getVoices() call).
+ */
 
-export function pickVoice(): { voice: SpeechSynthesisVoice | null; kind: VoiceKind } {
-  if (typeof speechSynthesis === 'undefined') return { voice: null, kind: 'missing' }
-  const voices = speechSynthesis.getVoices()
-  const tw = voices.find((v) => /zh[-_]TW/i.test(v.lang) || /taiwan/i.test(v.name))
-  if (tw) return { voice: tw, kind: 'zh-TW' }
-  const zh = voices.find((v) => v.lang.toLowerCase().startsWith('zh'))
-  if (zh) return { voice: zh, kind: 'zh-fallback' }
-  return { voice: voices[0] || null, kind: voices.length ? 'default' : 'missing' }
+export type VoiceKind = 'zh-TW-enhanced' | 'zh-TW' | 'zh-fallback' | 'default' | 'missing'
+
+export interface VoiceInfo {
+  name: string
+  lang: string
+  voiceURI?: string
 }
 
-export function speak(text: string, rate = 0.95): VoiceKind {
-  if (typeof speechSynthesis === 'undefined' || !text) return 'missing'
-  const u = new SpeechSynthesisUtterance(text)
-  const { voice, kind } = pickVoice()
-  u.lang = voice?.lang || 'zh-TW'
-  u.rate = rate
-  if (voice) u.voice = voice
-  speechSynthesis.cancel()
-  speechSynthesis.speak(u)
-  return kind
+export interface VoicePick<T extends VoiceInfo = VoiceInfo> {
+  voice: T | null
+  kind: VoiceKind
+}
+
+const ENHANCED = /enhanced|premium|優化|加強/i
+const MEIJIA = /meijia|美佳/i
+
+export function isZhTw(voice: VoiceInfo): boolean {
+  const blob = `${voice.lang} ${voice.voiceURI || ''} ${voice.name}`
+  return /zh[-_]TW/i.test(blob) || /taiwan|台灣/i.test(voice.name)
+}
+
+function isChinese(voice: VoiceInfo): boolean {
+  return /^zh/i.test(voice.lang) || /zh[-_]/i.test(voice.voiceURI || '')
+}
+
+/** Higher is better. Enhanced zh-TW (Meijia first) beats any other Chinese voice. */
+export function voiceScore(voice: VoiceInfo): number {
+  const blob = `${voice.name} ${voice.voiceURI || ''}`
+  const enhanced = ENHANCED.test(blob) || /com\.apple\.voice\.(enhanced|premium)\.zh-TW/i.test(blob)
+  if (isZhTw(voice) && enhanced && MEIJIA.test(blob)) return 100
+  if (isZhTw(voice) && enhanced) return 90
+  if (isZhTw(voice)) return 70
+  if (isChinese(voice)) return 40
+  return 10
+}
+
+export function rankVoices<T extends VoiceInfo>(voices: T[]): VoicePick<T> {
+  if (!voices.length) return { voice: null, kind: 'missing' }
+  let best = voices[0]
+  let bestScore = voiceScore(best)
+  for (const voice of voices.slice(1)) {
+    const score = voiceScore(voice)
+    if (score > bestScore) {
+      best = voice
+      bestScore = score
+    }
+  }
+  const kind: VoiceKind =
+    bestScore >= 90 ? 'zh-TW-enhanced' : bestScore >= 70 ? 'zh-TW' : bestScore >= 40 ? 'zh-fallback' : 'default'
+  return { voice: best, kind }
+}
+
+export const NATURAL_RATE = 0.9
+export const NATURAL_PITCH = 1
+
+type SynthVoice = VoiceInfo & { localService?: boolean; default?: boolean }
+
+let hooked = false
+let current: VoicePick<SynthVoice> = { voice: null, kind: 'missing' }
+const listeners = new Set<(pick: VoicePick<SynthVoice>) => void>()
+let speakToken = 0
+
+function synth(): SpeechSynthesis | undefined {
+  return typeof speechSynthesis === 'undefined' ? undefined : speechSynthesis
+}
+
+export function pickVoice(): VoicePick<SynthVoice> {
+  const api = synth()
+  if (!api) return { voice: null, kind: 'missing' }
+  return rankVoices(api.getVoices())
+}
+
+function refreshVoices() {
+  current = pickVoice()
+  listeners.forEach((fn) => fn(current))
+}
+
+/** Subscribe to the best available voice, including the late iPad list. */
+export function watchVoices(cb: (pick: VoicePick<SynthVoice>) => void): () => void {
+  const api = synth()
+  if (api && !hooked) {
+    hooked = true
+    api.getVoices()
+    if (typeof api.addEventListener === 'function') {
+      api.addEventListener('voiceschanged', refreshVoices)
+    } else {
+      const previous = api.onvoiceschanged
+      api.onvoiceschanged = (event) => {
+        if (typeof previous === 'function') previous.call(api, event)
+        refreshVoices()
+      }
+    }
+    window.setTimeout(refreshVoices, 300)
+  }
+  listeners.add(cb)
+  cb(api ? pickVoice() : current)
+  return () => listeners.delete(cb)
+}
+
+export function speak(text: string, rate = NATURAL_RATE): VoiceKind {
+  const api = synth()
+  if (!api || !text) return 'missing'
+  const picked = pickVoice()
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.lang = picked.voice?.lang || 'zh-TW'
+  utterance.rate = rate
+  utterance.pitch = NATURAL_PITCH
+  if (picked.voice) utterance.voice = picked.voice as SpeechSynthesisVoice
+  const token = ++speakToken
+  api.cancel()
+  // iPad drops an utterance that starts in the same turn as cancel().
+  window.setTimeout(() => {
+    if (token !== speakToken) return
+    api.speak(utterance)
+  }, 40)
+  return picked.kind
 }
 
 export function stopSpeak() {
-  if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel()
+  speakToken += 1
+  synth()?.cancel()
 }
 
 export function chime(kind: 'ok' | 'star' = 'ok') {

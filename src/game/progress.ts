@@ -48,7 +48,7 @@ export function defaultSettings(): Settings {
     showZhuyin: true,
     showPinyin: true,
     toneScoring: true,
-    speechRate: 0.95,
+    speechRate: 0.9,
     clockMode: true,
     textScale: 1,
   }

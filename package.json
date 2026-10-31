@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "tsx --test src/lib/pinyin.test.ts src/lib/srs.test.ts src/game/progress.test.ts tools/crypto-roundtrip.test.mjs tools/no-textbook-leak.test.mjs",
+    "test": "tsx --test src/lib/pinyin.test.ts src/lib/speech.test.ts src/lib/srs.test.ts src/game/progress.test.ts tools/crypto-roundtrip.test.mjs tools/no-textbook-leak.test.mjs",
     "encrypt": "node tools/encrypt-content.mjs",
     "postinstall": "node tools/copy-strokes.mjs"
   },

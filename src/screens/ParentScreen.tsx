@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BADGES, defaultSettings } from '../game/progress'
+import { speak, watchVoices, type VoiceKind, type VoicePick } from '../lib/speech'
 import { itemsFromLesson, islandsFromSave, islandScore } from '../game/questions'
 import type { LessonFile, Save, Settings } from '../game/types'
 import { Bi } from '../ui'
@@ -199,6 +200,7 @@ export function ParentScreen({
               <Bi zh="語音速度" en="Speech rate" />
               <input type="number" min={0.6} max={1.2} step={0.05} value={save.settings.speechRate} onChange={(e) => patchSettings({ speechRate: Number(e.target.value) })} />
             </label>
+            <VoiceHint rate={save.settings.speechRate} />
             <button className={`chip ${save.settings.showZhuyin ? 'on' : ''}`} onClick={() => patchSettings({ showZhuyin: !save.settings.showZhuyin })}>
               <Bi zh="注音" en="Zhuyin" />
             </button>
@@ -386,6 +388,40 @@ export function ParentScreen({
           <Bi zh="回地圖" en="Back to the map" />
         </button>
       </div>
+    </div>
+  )
+}
+
+function voiceLabel(kind: VoiceKind, name: string) {
+  if (!name) return { zh: '目前還沒有可用的語音。', en: 'No speech voice is available yet.' }
+  if (kind === 'zh-TW-enhanced') return { zh: `目前語音：${name}（加強版台灣國語）`, en: `Voice in use: ${name} (enhanced Taiwan Mandarin)` }
+  if (kind === 'zh-TW') return { zh: `目前語音：${name}（台灣國語）`, en: `Voice in use: ${name} (Taiwan Mandarin)` }
+  if (kind === 'zh-fallback') return { zh: `目前語音：${name}（不是台灣國語）`, en: `Voice in use: ${name} (not Taiwan Mandarin)` }
+  return { zh: `目前語音：${name}`, en: `Voice in use: ${name}` }
+}
+
+function VoiceHint({ rate }: { rate: number }) {
+  const [pick, setPick] = useState<VoicePick | null>(null)
+  useEffect(() => watchVoices(setPick), [])
+  const kind = pick?.kind ?? 'missing'
+  const name = pick?.voice?.name ?? ''
+  const label = voiceLabel(kind, name)
+  return (
+    <div className="note">
+      <p>
+        <Bi zh={label.zh} en={label.en} />
+      </p>
+      {kind !== 'zh-TW-enhanced' && (
+        <p>
+          <Bi
+            zh="沒有加強版台灣國語。請到「設定 > 輔助使用 > 朗讀內容 > 語音 > 中文（台灣）> 美佳（加強版）」下載。"
+            en="No enhanced Taiwan Mandarin voice. Download one in Settings > Accessibility > Spoken Content > Voices > Chinese (Taiwan) > Meijia Enhanced."
+          />
+        </p>
+      )}
+      <button className="btn" type="button" onClick={() => speak('你好，我是小海。貝貝住在一座小島上。', rate)}>
+        <Bi zh="試聽" en="Test voice" />
+      </button>
     </div>
   )
 }
