@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { decryptJson } from './lib/contentCrypto.mjs'
+import { decryptJson, readEncPayload } from './lib/contentCrypto.mjs'
 import { localISO } from './lib/srs'
 import { speak } from './lib/speech'
 import { loadSave, persistSave, wipeSave } from './game/db'
@@ -44,10 +44,14 @@ export function App() {
       setSave(s)
       if (s.avatar) setView('map')
     })
-    fetch(`${import.meta.env.BASE_URL}content.enc`)
-      .then((r) => {
-        const type = r.headers.get('content-type') || ''
-        setPackReady(r.ok && type.includes('json'))
+    fetch(`${import.meta.env.BASE_URL}content.enc`, { cache: 'no-store' })
+      .then(async (r) => {
+        if (!r.ok) {
+          setPackReady(false)
+          return
+        }
+        const payload = readEncPayload(await r.text(), r.headers.get('content-type') || '')
+        setPackReady(!!payload)
       })
       .catch(() => setPackReady(false))
   }, [])
@@ -99,17 +103,16 @@ export function App() {
   async function unlockPack() {
     setPwErr('')
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL}content.enc`)
+      const res = await fetch(`${import.meta.env.BASE_URL}content.enc`, { cache: 'no-store' })
       if (!res.ok) {
         setPwErr('這個網站還沒有加密課本。 No encrypted textbook on this site yet.')
         return
       }
-      const type = res.headers.get('content-type') || ''
-      if (!type.includes('json')) {
+      const payload = readEncPayload(await res.text(), res.headers.get('content-type') || '')
+      if (!payload) {
         setPwErr('這個網站還沒有加密課本。 No encrypted textbook on this site yet.')
         return
       }
-      const payload = await res.json()
       const data = (await decryptJson(payload, pw)) as { lessons?: LessonFile[] }
       const lessons = data.lessons || []
       if (!lessons.length) throw new Error('empty')

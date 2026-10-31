@@ -63,6 +63,22 @@ export async function encryptJson(value, password, iterations = DEFAULT_ITERATIO
   }
 }
 
+/** True only for our encrypted bundle. HTML (the SPA fallback) is not a pack. */
+export function readEncPayload(text, contentType = '') {
+  const type = String(contentType || '').toLowerCase()
+  if (type.includes('html')) return null
+  const body = String(text || '')
+  if (body.trimStart().startsWith('<')) return null
+  let data
+  try {
+    data = JSON.parse(body)
+  } catch {
+    return null
+  }
+  if (!data || data.format !== 'zizi-content-enc' || data.version !== 1 || !data.ciphertext) return null
+  return data
+}
+
 export async function decryptJson(payload, password) {
   if (!payload || payload.format !== 'zizi-content-enc' || payload.version !== 1) {
     throw new Error('Not a Zizi Islands content file')
