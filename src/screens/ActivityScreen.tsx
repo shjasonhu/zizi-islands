@@ -166,7 +166,7 @@ export function ActivityScreen({
         <p className="prompt">
           <Bi zh={q.promptZh} en={q.promptEn} />
         </p>
-        {voice && voice !== 'zh-TW' && (
+        {voice && voice !== 'zh-TW' && voice !== 'zh-TW-enhanced' && (
           <p className="note">
             <Bi
               zh="這台裝置沒有台灣國語語音，改用注音和拼音。有別的中文語音會先湊合。"

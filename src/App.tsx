@@ -83,7 +83,7 @@ export function App() {
   const shownTod = manualTod || !save?.settings.clockMode ? tod : autoTod
 
   useEffect(() => {
-    if (tour > 0) speak(TOUR[tour - 1].zh, save?.settings.speechRate || 0.95)
+    if (tour > 0) speak(TOUR[tour - 1].zh, save?.settings.speechRate ?? 0.9)
   }, [tour, save?.settings.speechRate])
 
   if (!save) {
